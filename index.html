@@ -113,7 +113,7 @@ reduceQuery.addEventListener?.('change', e=>{ reduced=e.matches; buildCausticSiz
 
 /* ---------- scene state ---------- */
 let fish=[], pads=[], striders=[], leaves=[], ripples=[], pellets=[], dimples=[], dragonflies=[];
-let stones=[], pebbles=[];
+
 let t=0, last=0, entrance=1, plaqueReady=false;
 let foodPoint=null, foodTimer=0;
 let feedUsed=false, tapUsed=false, hintFeed=1, hintTap=1;
@@ -138,9 +138,8 @@ function resize(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
 
   floorC.width=Math.round(W); floorC.height=Math.round(H);
-  buildFloor();
   buildCausticSize();
-  buildStones();
+  buildFloor();
   buildPlaque();
   seedPads();
   seedStriders();
@@ -158,39 +157,32 @@ function buildFloor(){
   const g=floorX;
   g.clearRect(0,0,W,H);
   // water body: pale jade edge -> teal -> deep centre
-  const rg=g.createRadialGradient(W*.5,H*.47,Math.min(W,H)*.06,
-                                  W*.5,H*.5,Math.max(W,H)*.72);
-  rg.addColorStop(0,   C.deep);
-  rg.addColorStop(.32, '#1E5A5E');
-  rg.addColorStop(.62, C.teal);
-  rg.addColorStop(.86, '#6FB79E');
+  const rg=g.createRadialGradient(W*.5,H*.47,Math.min(W,H)*.04,
+                                  W*.5,H*.5,Math.max(W,H)*.74);
+  rg.addColorStop(0,   '#0F2B33');
+  rg.addColorStop(.22, C.deep);
+  rg.addColorStop(.48, '#1C5A60');
+  rg.addColorStop(.72, C.teal);
+  rg.addColorStop(.90, '#74BEA3');
   rg.addColorStop(1,   C.jade);
   g.fillStyle=rg; g.fillRect(0,0,W,H);
 
-  // faint sandy mottling
+  // darker dappled patches give the deep centre a textured, natural bed
+  const dr=mulberry32(11);
+  for(let i=0;i<130;i++){
+    const x=dr()*W, y=dr()*H, rad=18+dr()*70;
+    const deep=Math.hypot(x-W*.5,y-H*.5)<Math.min(W,H)*.38;
+    g.fillStyle= deep ? `rgba(7,30,37,${.02+dr()*.035})` : `rgba(20,90,88,${.01+dr()*.02})`;
+    g.beginPath(); g.ellipse(x,y,rad,rad*(.45+dr()*.5),dr()*TAU,0,TAU); g.fill();
+  }
+
+  // faint dappled colour in the water — no banks, sand or stones
   const r=mulberry32(7);
   for(let i=0;i<220;i++){
     const x=r()*W, y=r()*H, rad=8+r()*46;
     const a=.012+r()*.022;
     g.fillStyle = r()<.5 ? `rgba(191,227,208,${a})` : `rgba(11,45,50,${a})`;
     g.beginPath(); g.ellipse(x,y,rad,rad*(.5+r()*.5),r()*TAU,0,TAU); g.fill();
-  }
-
-  // pebbles on the floor
-  pebbles=[];
-  for(let i=0;i<190;i++){
-    pebbles.push({x:r()*W,y:r()*H,rx:2+r()*6,ry:1.6+r()*4,
-      a:r()*TAU,c:r(),s:.05+r()*.11});
-  }
-  for(const p of pebbles){
-    g.save(); g.translate(p.x,p.y); g.rotate(p.a);
-    g.fillStyle = p.c<.45 ? `rgba(20,50,58,${p.s})` :
-                  p.c<.8 ? `rgba(191,227,208,${p.s*.9})` :
-                           `rgba(242,179,61,${p.s*.5})`;
-    g.beginPath(); g.ellipse(0,0,p.rx,p.ry,0,0,TAU); g.fill();
-    g.fillStyle='rgba(255,255,255,.07)';
-    g.beginPath(); g.ellipse(-p.rx*.25,-p.ry*.3,p.rx*.5,p.ry*.35,0,0,TAU); g.fill();
-    g.restore();
   }
 
   // dedication painted onto the floor (redrawn after fonts load)
@@ -214,7 +206,7 @@ function paintPlaque(){
   g.textAlign='center'; g.textBaseline='middle';
 
   // soft wash of paint bleed into the stone
-  const wash=g.createRadialGradient(cx,baseY-size*.15,size*.1,cx,baseY-size*.15,size*2.4);
+  const wash=g.createRadialGradient(cx,baseY-size*.15,size*.1,cx,baseY-size*.1,size*2.4);
   wash.addColorStop(0,'rgba(191,227,208,.16)');
   wash.addColorStop(1,'rgba(191,227,208,0)');
   g.fillStyle=wash;
@@ -265,74 +257,35 @@ function paintPlaque(){
   g.restore();
 }
 
-/* ---------- corner stone edging with moss ---------- */
-function buildStones(){
-  const r=mulberry32(21); stones=[];
-  const corners=[[0,0,1,1],[W,0,-1,1],[0,H,1,-1],[W,H,-1,-1]];
-  for(const [cx,cy,sx,sy] of corners){
-    const n=11;
-    for(let i=0;i<n;i++){
-      const ang=(i/(n-1))*(Math.PI*.5);
-      const rad=22+r()*20;
-      const x=cx+Math.cos(ang)*rad*sx;
-      const y=cy+Math.sin(ang)*rad*sy;
-      stones.push({x,y,rx:28+r()*22,ry:20+r()*16,rot:ang+rand(-.3,.3),
-        shade:r(),moss:r()<.55, mossA:r()});
-    }
-  }
-}
-function drawStones(g){
-  for(const s of stones){
-    g.save(); g.translate(s.x,s.y); g.rotate(s.rot);
-    g.shadowColor='rgba(8,30,34,.30)'; g.shadowBlur=9; g.shadowOffsetY=4;
-    const grad=g.createLinearGradient(-s.rx,-s.ry,s.rx,s.ry);
-    const base=s.shade;
-    grad.addColorStop(0, base<.5?'#9FA9A0':'#AEB6AA');
-    grad.addColorStop(.5,base<.5?'#7E8D85':'#909C90');
-    grad.addColorStop(1,'#61736E');
-    g.fillStyle=grad;
-    g.beginPath();
-    // slightly irregular stone outline
-    for(let k=0;k<9;k++){
-      const a=k/9*TAU;
-      const rr=1+Math.sin(k*2.3+s.shade*10)*.06;
-      const px=Math.cos(a)*s.rx*rr, py=Math.sin(a)*s.ry*rr;
-      k?g.lineTo(px,py):g.moveTo(px,py);
-    }
-    g.closePath(); g.fill();
-    g.shadowColor='transparent';
-    if(s.moss){
-      g.fillStyle=`rgba(62,142,90,${.20+s.mossA*.22})`;
-      g.beginPath(); g.ellipse(-s.rx*.3,-s.ry*.25,s.rx*.42,s.ry*.4,.5,0,TAU); g.fill();
-      g.fillStyle=`rgba(109,179,124,${.12+s.mossA*.14})`;
-      g.beginPath(); g.ellipse(s.rx*.28,s.ry*.3,s.rx*.3,s.ry*.28,-.4,0,TAU); g.fill();
-    }
-    g.restore();
-  }
-}
-
 /* ---------- caustics (low-res, scaled up) ---------- */
 function drawCaustics(time){
   const cw=causticC.width, ch=causticC.height;
   const img=causticX.createImageData(cw,ch);
   const d=img.data;
-  const tt=reduced?0:time*.45;
+  const tt=reduced?0:time*.42;
   for(let y=0;y<ch;y++){
     const ny=y/ch;
     for(let x=0;x<cw;x++){
       const nx=x/cw;
       // domain-warped coordinates break up any regular lattice
-      const wx=nx*7.3 + Math.sin(ny*10.7+tt*.53)*.55 + Math.sin(ny*4.1-tt*.31)*.9;
-      const wy=ny*6.1 + Math.sin(nx*9.3-tt*.47)*.50 + Math.sin(nx*3.7+tt*.27)*.8;
-      let v=Math.sin(wx*3.1+tt)+Math.sin(wy*3.7-tt*.8)+Math.sin((wx+wy)*2.3+tt*1.17);
-      v/=3;
-      const bright=Math.pow(Math.max(0,v+.02),3.6);
-      // calm deep centre, livelier light near the shallow edge
-      const rr=Math.hypot((nx-.5)*1.15,(ny-.5)*1.0);
-      const a=bright*(.32+clamp(rr*1.5,0,1)*.85);
+      const wx=nx*8.1+Math.sin(ny*9.7+tt*.51)*.62+Math.sin(ny*3.9-tt*.29)*.85;
+      const wy=ny*6.7+Math.sin(nx*8.9-tt*.44)*.55+Math.sin(nx*3.3+tt*.25)*.75;
+      let v=Math.sin(wx*2.7+tt)+Math.sin(wy*3.2-tt*.82)
+            +Math.sin((wx+wy)*1.9+tt*1.13)+Math.sin((wx-wy)*2.1-tt*.67);
+      v*=.25;
+      // the zero-crossings of the warped field form thin, branching caustic veins
+      const ridge=Math.pow(1-Math.min(1,Math.abs(v)),9);
+      let v2=Math.sin(wx*5.3-tt*1.7)+Math.sin(wy*6.1+tt*1.3)+Math.sin((wx+wy)*4.4-tt*.9);
+      v2=v2/3;
+      const fine=Math.pow(1-Math.min(1,Math.abs(v2)),12)*.30;
+      const glow=Math.pow(Math.max(0,v*.5+.5),4)*.20;
+      const bright=ridge*.90+fine+glow;
+      // calm deep centre, livelier light near the shallow shore
+      const rr=Math.hypot((nx-.5)*1.2,(ny-.5)*1.0);
+      const a=bright*(.30+clamp(rr*1.55,0,1)*.90);
       const i=(y*cw+x)*4;
-      d[i]=205; d[i+1]=246; d[i+2]=232;
-      d[i+3]=Math.min(255,a*175);
+      d[i]=214; d[i+1]=250; d[i+2]=238;
+      d[i+3]=Math.min(255,a*210);
     }
   }
   causticX.putImageData(img,0,0);
@@ -340,7 +293,7 @@ function drawCaustics(time){
 function paintCaustics(){
   ctx.save();
   ctx.globalCompositeOperation='screen';
-  ctx.globalAlpha=reduced?.14:.27;
+  ctx.globalAlpha=reduced?.16:.38;
   ctx.imageSmoothingEnabled=true;
   ctx.drawImage(causticC,0,0,W,H);
   ctx.restore();
@@ -350,17 +303,21 @@ function paintCaustics(){
 function seedPads(){
   pads=[];
   const r=mulberry32(33);
-  const n=W<620?4:(W<1000?6:8);
-  for(let i=0;i<n;i++){
-    const x=W*(.12+r()*.76), y=H*(.14+r()*.72);
-    const rad=clamp(Math.min(W,H)*(.045+r()*.035),26,62);
-    pads.push({
-      ax:x, ay:y, x, y, r:rad,
-      phase:r()*TAU, spd:.12+r()*.16, drift:6+r()*14,
-      notch:r()*TAU, green:r()<.5, bob:0,
-      flower:(i===1||i===4)&&r()<.9, blossom:r()*TAU,
-      rose:r()<.6
-    });
+  const clusters=W<620?3:(W<1000?4:5);
+  for(let c=0;c<clusters;c++){
+    const cx=W*(.17+r()*.66), cy=H*(.16+r()*.68);
+    const count=1+(r()<.7?1:0)+(r()<.45?1:0)+(r()<.2?1:0);
+    for(let k=0;k<count;k++){
+      const rad=clamp(Math.min(W,H)*(.028+r()*.045),22,66);
+      const x=clamp(cx+(r()-.5)*rad*2.4,W*.14,W*.86);
+      const y=clamp(cy+(r()-.5)*rad*2.4,H*.10,H*.90);
+      pads.push({
+        ax:x, ay:y, x, y, r:rad,
+        phase:r()*TAU, spd:.12+r()*.16, drift:5+r()*12,
+        notch:r()*TAU, green:r()<.5, bob:0,
+        flower:r()<.22, blossom:r()*TAU, seed:r()*100
+      });
+    }
   }
 }
 function updatePads(dt){
@@ -371,71 +328,78 @@ function updatePads(dt){
     p.bob*=Math.pow(.02,dt);
   }
 }
+function padPath(g,p){
+  const cut=.30, steps=26;
+  g.beginPath(); g.moveTo(0,0);
+  for(let i=0;i<=steps;i++){
+    const a=cut/2+(TAU-cut)*i/steps;
+    const wob=1+Math.sin(a*3+p.seed)*.035+Math.sin(a*7+p.seed*.5)*.022;
+    g.lineTo(Math.cos(a)*p.r*wob,Math.sin(a)*p.r*wob);
+  }
+  g.closePath();
+}
 function drawPad(g,p){
   g.save(); g.translate(p.x,p.y);
-  // shadow on the floor
+  // soft shadow on the water below
   g.save(); g.translate(5,8);
-  g.shadowColor='rgba(8,30,34,.28)'; g.shadowBlur=10;
-  g.fillStyle='rgba(8,30,34,.16)';
-  g.beginPath(); g.arc(0,0,p.r*(1+p.bob*.03),0,TAU); g.fill();
+  g.shadowColor='rgba(8,30,34,.30)'; g.shadowBlur=11;
+  g.fillStyle='rgba(8,30,34,.15)';
+  padPath(g,p); g.fill();
   g.restore();
 
   g.rotate(p.notch);
   const base=p.green?C.padDark:C.padLight;
-  const grad=g.createRadialGradient(-p.r*.25,-p.r*.3,p.r*.1,0,0,p.r);
-  grad.addColorStop(0, p.green?'#66B47A':'#9AD6A9');
-  grad.addColorStop(.7, base);
-  grad.addColorStop(1, p.green?'#2E6E46':'#4F9466');
+  const grad=g.createRadialGradient(-p.r*.25,-p.r*.3,p.r*.08,0,0,p.r);
+  grad.addColorStop(0,p.green?'#70BC82':'#A5DDB2');
+  grad.addColorStop(.65,base);
+  grad.addColorStop(1,p.green?'#2B6842':'#4B8E62');
   g.fillStyle=grad;
-  // pad with a wedge notch
-  const cut=.30;
-  g.beginPath();
-  g.moveTo(0,0);
-  g.arc(0,0,p.r,cut/2,TAU-cut/2);
-  g.closePath(); g.fill();
+  padPath(g,p); g.fill();
 
-  // veins
-  g.strokeStyle='rgba(20,70,45,.18)'; g.lineWidth=1;
-  for(let i=0;i<9;i++){
-    const a=cut/2+(TAU-cut)*i/8;
-    g.beginPath(); g.moveTo(0,0);
-    g.lineTo(Math.cos(a)*p.r*.92,Math.sin(a)*p.r*.92); g.stroke();
+  g.save(); padPath(g,p); g.clip();
+  const r=mulberry32(Math.floor(p.seed*1000)+7);
+  for(let i=0;i<16;i++){
+    const a=r()*TAU, d=Math.sqrt(r())*p.r;
+    g.fillStyle=r()<.55?`rgba(18,80,48,${.04+r()*.09})`:`rgba(210,245,210,${.04+r()*.09})`;
+    g.beginPath(); g.ellipse(Math.cos(a)*d,Math.sin(a)*d,
+      p.r*(.08+r()*.18),p.r*(.05+r()*.12),r()*TAU,0,TAU); g.fill();
   }
-  // rim light
-  g.strokeStyle='rgba(230,255,235,.35)'; g.lineWidth=1.4;
-  g.beginPath(); g.arc(0,0,p.r-1,cut/2+.05,TAU-cut/2-.05); g.stroke();
+  g.strokeStyle='rgba(18,70,42,.20)'; g.lineWidth=1;
+  for(let i=0;i<11;i++){
+    const a=.18+(TAU-.36)*i/10;
+    g.beginPath(); g.moveTo(0,0);
+    g.quadraticCurveTo(Math.cos(a+.12)*p.r*.5,Math.sin(a+.12)*p.r*.5,
+      Math.cos(a)*p.r*.94,Math.sin(a)*p.r*.94); g.stroke();
+  }
+  g.restore();
+
+  g.strokeStyle='rgba(230,255,235,.34)'; g.lineWidth=1.3;
+  g.save(); g.translate(-.5,-.8); padPath(g,p); g.stroke(); g.restore();
 
   if(p.flower) drawLotus(g,p);
   g.restore();
 }
 function drawLotus(g,p){
-  const s=p.r*.42;
+  const s=p.r*.24;
   g.save(); g.rotate(-p.notch+p.blossom);
-  // shadow
-  g.fillStyle='rgba(8,30,34,.15)';
-  g.beginPath(); g.ellipse(3,5,s*1.1,s*.75,0,0,TAU); g.fill();
-  // two rings of petals
+  g.fillStyle='rgba(8,30,34,.14)';
+  g.beginPath(); g.ellipse(2,3,s*1.1,s*.75,0,0,TAU); g.fill();
   for(let ring=0;ring<2;ring++){
-    const count=ring?7:5, rr=ring?s*.62:s;
+    const count=ring?6:5, rr=ring?s*.58:s;
     for(let i=0;i<count;i++){
-      const a=i/count*TAU + ring*.4;
-      g.save(); g.rotate(a);
-      g.translate(0,-rr*.45);
+      const a=i/count*TAU+ring*.4;
+      g.save(); g.rotate(a); g.translate(0,-rr*.40);
       const pg=g.createLinearGradient(0,-rr*.6,0,rr*.4);
-      pg.addColorStop(0,'#FFFFFF');
-      pg.addColorStop(.55,C.lotus);
-      pg.addColorStop(1, ring?'#E9A9B7':'#F1B6C2');
+      pg.addColorStop(0,'#FFFFFF'); pg.addColorStop(.55,C.lotus); pg.addColorStop(1,'#EBAFC0');
       g.fillStyle=pg;
-      g.beginPath();
-      g.moveTo(0,-rr*.62);
-      g.quadraticCurveTo(rr*.42,-rr*.1,0,rr*.42);
-      g.quadraticCurveTo(-rr*.42,-rr*.1,0,-rr*.62);
-      g.fill();
-      g.restore();
+      g.beginPath(); g.moveTo(0,-rr*.6);
+      g.quadraticCurveTo(rr*.36,-rr*.08,0,rr*.4);
+      g.quadraticCurveTo(-rr*.36,-rr*.08,0,-rr*.6);
+      g.fill(); g.restore();
     }
   }
   g.fillStyle=C.yolk;
-  g.beginPath(); g.arc(0,0,s*.28,0,TAU); g.fill();
+  g.beginPath(); g.arc(0,0,s*.26,0,TAU); g.fill();
   g.restore();
 }
 
@@ -486,11 +450,11 @@ function drawStrider(g,s){
 /* ---------- falling maple leaves ---------- */
 function seedLeaves(){
   leaves=[];
-  const n=W<620?2:4;
+  const n=W<620?5:(W<1000?8:11);
   for(let i=0;i<n;i++) leaves.push({
-    x:rand(W), y:rand(H), size:7+rand()*7,
-    rot:rand(TAU), spin:rand(-.5,.5), vx:rand(6,16), vy:rand(-4,9),
-    hue:pick(['#C9662E','#D98B3A','#B6532E','#D9A441'])
+    x:rand(W), y:rand(H), size:10+rand()*11,
+    rot:rand(TAU), spin:rand(-.45,.45), vx:rand(4,13), vy:rand(-3,7),
+    hue:pick(['#D2622A','#E08A34','#BB4A26','#D9A83E','#C96A2A'])
   });
 }
 function updateLeaves(dt){
@@ -502,19 +466,25 @@ function updateLeaves(dt){
 }
 function drawMaple(g,l){
   g.save(); g.translate(l.x,l.y); g.rotate(l.rot);
-  g.globalAlpha=.85;
-  g.fillStyle='rgba(8,30,34,.16)';
+  g.globalAlpha=.88;
+  g.fillStyle='rgba(10,40,44,.16)';
   g.save(); g.translate(3,4); maplePath(g,l.size); g.fill(); g.restore();
-  g.fillStyle=l.hue;
-  maplePath(g,l.size); g.fill();
-  g.strokeStyle='rgba(90,40,20,.35)'; g.lineWidth=.7;
-  g.beginPath(); g.moveTo(0,l.size*.5); g.lineTo(0,-l.size*.3); g.stroke();
+  const grad=g.createLinearGradient(-l.size,-l.size,l.size,l.size);
+  grad.addColorStop(0,l.hue);
+  grad.addColorStop(1,'rgba(120,45,20,.92)');
+  g.fillStyle=grad; maplePath(g,l.size); g.fill();
+  g.strokeStyle='rgba(90,40,20,.42)'; g.lineWidth=.7;
+  for(const [tx,ty] of [[0,-.92],[.60,-.50],[-.60,-.50],[.82,-.08],[-.82,-.08]]){
+    g.beginPath(); g.moveTo(0,l.size*.62); g.lineTo(tx*l.size,ty*l.size); g.stroke();
+  }
   g.restore();
 }
 function maplePath(g,s){
   g.beginPath();
-  const pts=[[0,-1],[.28,-.42],[.72,-.62],[.5,-.16],[1,.04],[.48,.26],[.62,.72],[.16,.5],[0,.9],
-             [-.16,.5],[-.62,.72],[-.48,.26],[-1,.04],[-.5,-.16],[-.72,-.62],[-.28,-.42]];
+  const pts=[[0,-1],[.16,-.62],[.42,-.78],[.38,-.46],[.72,-.55],[.58,-.26],
+             [.92,-.12],[.62,.04],[.86,.30],[.48,.28],[.52,.55],[.22,.42],[0,.92],
+             [-.22,.42],[-.52,.55],[-.48,.28],[-.86,.30],[-.62,.04],
+             [-.92,-.12],[-.58,-.26],[-.72,-.55],[-.38,-.46],[-.42,-.78],[-.16,-.62]];
   g.moveTo(pts[0][0]*s,pts[0][1]*s);
   for(let i=1;i<pts.length;i++) g.lineTo(pts[i][0]*s,pts[i][1]*s);
   g.closePath();
@@ -523,22 +493,31 @@ function maplePath(g,s){
 /* ---------- koi ---------- */
 const VARIETIES={
   kohaku:{base:C.white, patches:[C.orange], n:[2,4]},
-  showa: {base:C.black, patches:[C.white,C.orange], n:[2,4]},
+  white: {base:C.white, patches:[], n:[0,0], sheen:true},
   ogon:  {base:C.yolk,  patches:[], n:[0,0]},
-  tancho:{base:C.white, patches:[C.orange], n:[1,1], crown:true}
+  tancho:{base:C.white, patches:[C.orange], n:[1,1], crown:true},
+  showa: {base:C.black, patches:[C.white,C.orange], n:[2,4]}
 };
+const VARIETY_WEIGHTS=['kohaku','kohaku','kohaku','white','white','ogon','ogon','tancho','showa'];
+// keep headings away from exact horizontal/vertical axes so no fish ever looks pinned
+function freeAngle(a){
+  for(const k of [0,Math.PI*.5,Math.PI,Math.PI*1.5,Math.PI*2]){
+    let d=((a-k+Math.PI)%TAU+TAU)%TAU-Math.PI;
+    if(Math.abs(d)<.20) a+= (d>=0?1:-1)*(.24+Math.random()*.16);
+  }
+  return a;
+}
 function makeFish(seed,enter){
   const r=mulberry32(seed);
-  const names=Object.keys(VARIETIES);
-  const v=names[(r()*names.length)|0];
+  const v=pick(VARIETY_WEIGHTS);
   const variety=VARIETIES[v];
   const size=clamp(Math.min(W,H)*(.12+r()*.10),58,150);
   const segCount=15;
-  const halfW=size*.155;
+  const halfW=size*.115;
   const blobs=[];
   if(variety.crown){
     blobs.push({u:.10+r()*.04,v:rand(-.25,.25),rx:.20,ry:.42,c:C.orange,rot:rand(-.3,.3)});
-  } else if(v){
+  } else if(variety.patches.length){
     const count=variety.n[0]+((r()*(variety.n[1]-variety.n[0]+1))|0);
     for(let i=0;i<count;i++){
       blobs.push({
@@ -548,28 +527,32 @@ function makeFish(seed,enter){
       });
     }
   }
-  const palette=['#F26B21','#F0832E','#E85D1E','#F2B33D'];
   const fromEdge=enter!==false;
   let x,y,heading;
   if(fromEdge){
     const side=(r()*4)|0;
-    if(side===0){x=rand(W);y=-size*.8;heading=Math.PI*.5;}
-    else if(side===1){x=W+size*.8;y=rand(H);heading=Math.PI;}
-    else if(side===2){x=rand(W);y=H+size*.8;heading=-Math.PI*.5;}
-    else{x=-size*.8;y=rand(H);heading=0;}
-    heading+=rand(-.4,.4);
+    if(side===0){x=rand(W);y=-size*.35;heading=Math.PI*.5;}
+    else if(side===1){x=W+size*.35;y=rand(H);heading=Math.PI;}
+    else if(side===2){x=rand(W);y=H+size*.35;heading=-Math.PI*.5;}
+    else{x=-size*.35;y=rand(H);heading=0;}
+    heading=freeAngle(heading+rand(-1.1,1.1));
   } else {
-    x=rand(W*.15,W*.85); y=rand(H*.15,H*.85); heading=rand(TAU);
+    x=rand(W*.18,W*.82); y=rand(H*.18,H*.82);
+    heading=freeAngle(rand(TAU));
   }
   return {
     v, variety, size, segCount, halfW, blobs,
     x,y,heading,
-    baseSpeed: rand(26,44)*(size/110),
+    baseSpeed: rand(24,40)*(size/110),
     speed: 8,
-    wander:heading, burst:rand(0,1),
-    tailFreq:rand(3.4,5.0), waveLag:rand(.42,.62), waveAmp:rand(.10,.17),
-    finFreq:rand(8,12), finPhase:rand(TAU),
-    segLen:(size*.92)/(segCount-1),
+    burst:rand(0,1),
+    // a slowly wandering cruise heading: never locks to an axis, always gently turning
+    cruise:heading, cruisePhase:rand(TAU), cruiseRate:.10+r()*.16,
+    // some fish bend gracefully, others swim nearly straight
+    sinuosity:.35+r()*1.0, bendPhase:rand(TAU), bendRate:.22+r()*.28,
+    tailFreq:rand(3.0,4.7), waveLag:rand(.48,.66), waveAmp:rand(.09,.16),
+    finFreq:rand(7,11), finPhase:rand(TAU),
+    segLen:(size*1.12)/(segCount-1),
     fleeX:0,fleeY:0,fleeTimer:0,
     curious:0, feeding:false, fed:0,
     enterT:fromEdge?rand(1.2,3.0):0,
@@ -579,23 +562,27 @@ function makeFish(seed,enter){
 }
 function seedFish(){
   fish=[];
-  const n = W<560?7 : W<900?10 : 13;
+  const n = W<560?7 : W<900?11 : 14;
   for(let i=0;i<n;i++) fish.push(makeFish(100+i*37,true));
 }
 function profile(t){
-  if(t<.12) return .35+.55*(t/.12);
-  if(t<.32) return .90+.10*((t-.12)/.20);
-  if(t<.70) return 1.00-.35*((t-.32)/.38);
-  if(t<.92) return .65-.42*((t-.70)/.22);
-  return Math.max(.09,.23-.10*((t-.92)/.08));
+  if(t<.10) return .62+.30*(t/.10);
+  if(t<.30) return .92+.08*((t-.10)/.20);
+  if(t<.68) return 1.00-.33*((t-.30)/.38);
+  if(t<.90) return .67-.40*((t-.68)/.22);
+  return Math.max(.10,.27-.12*((t-.90)/.10));
 }
 function geometry(f){
   const N=f.segCount, sp=f.spine;
   sp.length=0;
   let px=f.x, py=f.y;
   for(let i=0;i<N;i++){
-    const wave=Math.sin(t*f.tailFreq - i*f.waveLag)*f.waveAmp*(.22+.78*i/(N-1));
-    const a=f.heading+wave;
+    const u=i/(N-1);
+    const wave=Math.sin(t*f.tailFreq - i*f.waveLag)*f.waveAmp*(.20+.80*u);
+    // the head is the fish's position; every segment trails BEHIND it, so the
+    // tail always follows and the koi can only ever swim head-first.
+    const bend=Math.sin(t*f.bendRate+f.bendPhase)*.13*f.sinuosity*Math.pow(u,1.35);
+    const a=f.heading+Math.PI+wave+bend;
     if(i>0){ px+=Math.cos(a)*f.segLen; py+=Math.sin(a)*f.segLen; }
     sp.push({x:px,y:py,a});
   }
@@ -624,29 +611,34 @@ function blobPos(f,u,v){
 }
 function drawFishShadow(g,f){
   g.save();
-  g.translate(f.size*.06+6, f.size*.09+9);
-  g.shadowColor='rgba(6,28,32,.34)';
-  g.shadowBlur=Math.max(6,f.size*.09);
-  g.fillStyle='rgba(8,32,36,.16)';
+  g.translate(f.size*.07+7, f.size*.10+10);
+  g.shadowColor='rgba(6,28,32,.30)';
+  g.shadowBlur=Math.max(9,f.size*.15);
+  g.fillStyle='rgba(8,32,36,.10)';
   g.fill(f.path);
   g.restore();
 }
 function drawFish(g,f){
   const s=f.spine, N=f.segCount;
 
-  // tail fin
+  // fan-like tail trails BEHIND the tail joint (+local x is the backward axis)
   const tail=s[N-1];
   g.save(); g.translate(tail.x,tail.y); g.rotate(tail.a);
-  const spread=.30+.18*Math.sin(t*f.tailFreq-(N-1)*f.waveLag);
-  const tl=f.size*.30;
+  const spread=.16+.10*Math.sin(t*f.tailFreq-(N-1)*f.waveLag);
+  const tl=f.size*.24, hw=f.halfW;
   g.fillStyle=f.variety.base;
-  g.globalAlpha=.82;
+  g.globalAlpha=.42;
   g.beginPath();
   g.moveTo(0,0);
-  g.quadraticCurveTo(-tl*.5,-f.halfW*spread*2.2,-tl,f.halfW*(-.2-spread*2));
-  g.quadraticCurveTo(-tl*.62,0,-tl,f.halfW*(.2+spread*2));
-  g.quadraticCurveTo(-tl*.5,f.halfW*spread*2.2,0,0);
+  g.quadraticCurveTo(tl*.28,-hw*(.70+spread),tl,-hw*(.95+spread));
+  g.quadraticCurveTo(tl*.70,-hw*.12,tl*.52,0);
+  g.quadraticCurveTo(tl*.70,hw*.12,tl,hw*(.95+spread));
+  g.quadraticCurveTo(tl*.28,hw*(.70+spread),0,0);
   g.fill();
+  g.globalAlpha=.20; g.strokeStyle='#FFFFFF'; g.lineWidth=1;
+  g.beginPath(); g.moveTo(tl*.10,-hw*.18);
+  g.quadraticCurveTo(tl*.60,-hw*(.80+spread),tl*.94,-hw*(.95+spread));
+  g.stroke();
   g.restore();
 
   // pectoral fins
@@ -654,15 +646,16 @@ function drawFish(g,f){
     const p=s[Math.min(3,N-1)];
     g.save();
     g.translate(p.x+p.nx*side*p.hw*.7, p.y+p.ny*side*p.hw*.7);
-    const flap=Math.sin(t*f.finFreq+f.finPhase+(side>0?0:Math.PI))*.38;
-    g.rotate(Math.atan2(p.ny,p.nx)+side*(.9+flap));
-    const fl=f.size*.17;
-    g.globalAlpha=.55;
+    const flap=Math.sin(t*f.finFreq+f.finPhase)*.18;
+    const backTangent=Math.atan2(p.ny,p.nx)-Math.PI*.5;
+    g.rotate(backTangent+side*(Math.PI*.5-.34)+flap);
+    const fl=f.size*.125;
+    g.globalAlpha=.34;
     g.fillStyle=f.variety.base;
     g.beginPath();
     g.moveTo(0,0);
-    g.quadraticCurveTo(fl*.6,-fl*.42,fl,0);
-    g.quadraticCurveTo(fl*.5,fl*.34,0,0);
+    g.quadraticCurveTo(fl*.55,-fl*.40,fl,0);
+    g.quadraticCurveTo(fl*.5,fl*.32,0,0);
     g.fill();
     g.restore();
   }
@@ -681,6 +674,15 @@ function drawFish(g,f){
   vg.addColorStop(.45,'rgba(255,255,255,0)');
   vg.addColorStop(1,'rgba(8,40,44,.20)');
   g.save(); g.clip(f.path); g.fillStyle=vg; g.fillRect(minx,miny,maxx-minx,maxy-miny);
+
+  // soft pearly sheen on the pale varieties
+  if(f.variety.sheen || f.v==='kohaku' || f.v==='tancho'){
+    const hx=s[1].x-f.size*.04, hy=s[1].y-f.size*.05;
+    const hg=g.createRadialGradient(hx,hy,0,hx,hy,f.size*.44);
+    hg.addColorStop(0,'rgba(255,255,255,.40)');
+    hg.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=hg; g.fillRect(minx,miny,maxx-minx,maxy-miny);
+  }
 
   // painted pattern blobs
   for(const b of f.blobs){
@@ -723,7 +725,7 @@ function drawFish(g,f){
   // open mouth while feeding
   if(f.feeding && f.fed<3){
     const h0=s[0];
-    g.save(); g.translate(h0.x,h0.y); g.rotate(h0.a);
+    g.save(); g.translate(h0.x,h0.y); g.rotate(h0.a+Math.PI);
     g.fillStyle='rgba(30,15,10,.6)';
     g.beginPath(); g.ellipse(f.size*.01,0,f.size*.028,f.size*.018,0,0,TAU); g.fill();
     g.restore();
@@ -738,9 +740,11 @@ function updateFish(dt){
     if(f.fleeTimer>0) f.fleeTimer-=dt;
     if(f.curious>0) f.curious-=dt;
 
-    let dx=Math.cos(f.wander), dy=Math.sin(f.wander);
-    f.wander+=rand(-1,1)*dt*.9;
-    f.wander=angLerp(f.wander,f.heading,dt*.4);
+    // cruise heading meanders continuously; a faint spatial current bends the path
+    f.cruise+=Math.sin(t*.13+f.cruisePhase)*dt*f.cruiseRate;
+    const cruiseAngle=f.cruise+Math.sin(t*f.cruiseRate+f.cruisePhase)*.55;
+    let dx=Math.cos(cruiseAngle)+Math.sin(f.y*.006+t*.2)*.18;
+    let dy=Math.sin(cruiseAngle)+Math.cos(f.x*.005-t*.17)*.18;
 
     // curiosity toward slow pointer
     if(f.curious>0 && pointer.inside){
@@ -791,8 +795,11 @@ function updateFish(dt){
       if(f.y>H-margin) dy-=(f.y-(H-margin))/margin*2.5;
     }
 
+    // a koi can only turn; it never flips or swims backwards. Cap the turn rate
+    // so even a startle becomes a smooth bank rather than an instant reversal.
     if(Math.abs(dx)+Math.abs(dy)>.001){
-      f.heading=angLerp(f.heading,Math.atan2(dy,dx),clamp(dt*(f.fleeTimer>0?5:2.4),0,1));
+      const rate=clamp(dt*(f.fleeTimer>0?4.5:1.9),0,.22);
+      f.heading=angLerp(f.heading,Math.atan2(dy,dx),rate);
     }
 
     // tail burst & glide
@@ -802,7 +809,7 @@ function updateFish(dt){
     if(reduced) target*=.33;
     if(f.fleeTimer>0) target*=2.1;
     if(f.feeding) target*=1.35;
-    if(f.enterT>0) target*=1.15;
+    if(f.enterT>0) target*=1.6;
     f.speed=lerp(f.speed,target,clamp(dt*2.2,0,1));
     f.x+=Math.cos(f.heading)*f.speed*dt;
     f.y+=Math.sin(f.heading)*f.speed*dt;
