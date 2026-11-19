@@ -270,13 +270,13 @@ function buildStones(){
   const r=mulberry32(21); stones=[];
   const corners=[[0,0,1,1],[W,0,-1,1],[0,H,1,-1],[W,H,-1,-1]];
   for(const [cx,cy,sx,sy] of corners){
-    const n=9;
+    const n=11;
     for(let i=0;i<n;i++){
       const ang=(i/(n-1))*(Math.PI*.5);
-      const rad=16+r()*10;
+      const rad=22+r()*20;
       const x=cx+Math.cos(ang)*rad*sx;
       const y=cy+Math.sin(ang)*rad*sy;
-      stones.push({x,y,rx:24+r()*20,ry:16+r()*13,rot:ang+rand(-.3,.3),
+      stones.push({x,y,rx:28+r()*22,ry:20+r()*16,rot:ang+rand(-.3,.3),
         shade:r(),moss:r()<.55, mossA:r()});
     }
   }
@@ -316,18 +316,23 @@ function drawCaustics(time){
   const cw=causticC.width, ch=causticC.height;
   const img=causticX.createImageData(cw,ch);
   const d=img.data;
-  const tt=reduced?0:time*.55;
-  const sx=cw/W, sy=ch/H;
+  const tt=reduced?0:time*.45;
   for(let y=0;y<ch;y++){
-    const ay=y*sy*90;
+    const ny=y/ch;
     for(let x=0;x<cw;x++){
-      const ax=x*sx*90;
-      let v=Math.sin(ax*1.1+tt)+Math.sin(ay*1.32-tt*.8)+Math.sin((ax+ay)*.86+tt*1.15);
+      const nx=x/cw;
+      // domain-warped coordinates break up any regular lattice
+      const wx=nx*7.3 + Math.sin(ny*10.7+tt*.53)*.55 + Math.sin(ny*4.1-tt*.31)*.9;
+      const wy=ny*6.1 + Math.sin(nx*9.3-tt*.47)*.50 + Math.sin(nx*3.7+tt*.27)*.8;
+      let v=Math.sin(wx*3.1+tt)+Math.sin(wy*3.7-tt*.8)+Math.sin((wx+wy)*2.3+tt*1.17);
       v/=3;
-      const bright=Math.pow(Math.max(0,v+.12),3.2);
+      const bright=Math.pow(Math.max(0,v+.02),3.6);
+      // calm deep centre, livelier light near the shallow edge
+      const rr=Math.hypot((nx-.5)*1.15,(ny-.5)*1.0);
+      const a=bright*(.32+clamp(rr*1.5,0,1)*.85);
       const i=(y*cw+x)*4;
-      d[i]=198; d[i+1]=244; d[i+2]=230;
-      d[i+3]=Math.min(255, bright*190);
+      d[i]=205; d[i+1]=246; d[i+2]=232;
+      d[i+3]=Math.min(255,a*175);
     }
   }
   causticX.putImageData(img,0,0);
@@ -335,7 +340,7 @@ function drawCaustics(time){
 function paintCaustics(){
   ctx.save();
   ctx.globalCompositeOperation='screen';
-  ctx.globalAlpha=reduced?.16:.30;
+  ctx.globalAlpha=reduced?.14:.27;
   ctx.imageSmoothingEnabled=true;
   ctx.drawImage(causticC,0,0,W,H);
   ctx.restore();
